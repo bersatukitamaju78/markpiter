@@ -1,0 +1,6 @@
+{
+  "name": "MARKPITER - Matriks KPI Terintegrasi",
+  "description": "Aplikasi penyusunan KPI Divisi dan KPI Officer/Staf terintegrasi berbasis Balanced Scorecard dan standar transmisi gas alam (ASME, API, PHMSA, ISO).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
