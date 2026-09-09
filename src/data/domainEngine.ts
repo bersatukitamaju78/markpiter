@@ -5,7 +5,99 @@ import { CORPORATE_KPIS } from './corporateKPIs';
  * Intelligent Gas Transmission Domain Engine
  * Translates Corporate KPIs + Division Profile into standardized Division KPIs,
  * and cascades Division KPIs into Officer KPIs using ASME, API, PHMSA, and ISO standards.
+ * Actively parses and translates user inputs in "Key Deliverables / Performance Measures" into tailored KPIs.
  */
+
+function parseDelimitedItems(rawText: string | undefined): string[] {
+  if (!rawText || !rawText.trim()) return [];
+  
+  return rawText
+    .split(/[\r\n;]+/)
+    .map(line => line.replace(/^[\s\d\.\-\*\•\(\)\[\]\>]+/, '').trim())
+    .filter(line => line.length > 5);
+}
+
+function deriveKPITypeFromText(text: string): 'Shareholders' | 'Customer' | 'Internal Process' | 'Learning & Growth' {
+  const lower = text.toLowerCase();
+  if (lower.includes('anggaran') || lower.includes('budget') || lower.includes('biaya') || lower.includes('npat') || lower.includes('cost') || lower.includes('kontrak') || lower.includes('capex') || lower.includes('opex') || lower.includes('profit') || lower.includes('grc')) {
+    return 'Shareholders';
+  }
+  if (lower.includes('customer') || lower.includes('pelanggan') || lower.includes('shipper') || lower.includes('complaint') || lower.includes('penyaluran gas') || lower.includes('delivered') || lower.includes('gta')) {
+    return 'Customer';
+  }
+  if (lower.includes('kompetensi') || lower.includes('training') || lower.includes('pelatihan') || lower.includes('sertifikasi') || lower.includes('akhlak') || lower.includes('budaya') || lower.includes('learning') || lower.includes('job grade') || lower.includes('culture')) {
+    return 'Learning & Growth';
+  }
+  return 'Internal Process';
+}
+
+function deriveGasStandardFromText(text: string): string {
+  const lower = text.toLowerCase();
+  if (lower.includes('ili') || lower.includes('pigging') || lower.includes('integritas') || lower.includes('integrity') || lower.includes('geohazard') || lower.includes('maop')) {
+    return 'ASME B31.8S / API 1160';
+  }
+  if (lower.includes('katodik') || lower.includes('cathodic') || lower.includes('korosi') || lower.includes('cp') || lower.includes('cips')) {
+    return 'NACE SP0169 / ASME B31.8';
+  }
+  if (lower.includes('uag') || lower.includes('metering') || lower.includes('volume') || lower.includes('custody') || lower.includes('scada')) {
+    return 'AGA 3 / AGA 9 / API MPMS';
+  }
+  if (lower.includes('safety') || lower.includes('hsse') || lower.includes('lti') || lower.includes('kecelakaan') || lower.includes('k3')) {
+    return 'ISO 45001 / OSHA 1904';
+  }
+  if (lower.includes('lingkungan') || lower.includes('esg') || lower.includes('emisi') || lower.includes('metana')) {
+    return 'ISO 14001 / GHG Protocol';
+  }
+  if (lower.includes('aset') || lower.includes('asset') || lower.includes('pemeliharaan') || lower.includes('keandalan') || lower.includes('reliability')) {
+    return 'ISO 55001 / ASME B31.8';
+  }
+  return 'ASME B31.8 / ISO 9001';
+}
+
+function findBestMatchingCorpKPI(text: string, corpPool: CorporateKPI[]): CorporateKPI {
+  const lower = text.toLowerCase();
+  if (lower.includes('geohazard') || lower.includes('tanah') || lower.includes('longsor') || lower.includes('stabilitas')) {
+    return corpPool.find(c => c.id === 'corp-sh-2') || corpPool[0];
+  }
+  if (lower.includes('uag') || lower.includes('losses') || lower.includes('metering')) {
+    return corpPool.find(c => c.id === 'corp-ip-1') || corpPool[0];
+  }
+  if (lower.includes('penyaluran') || lower.includes('volume') || lower.includes('delivered') || lower.includes('shipper')) {
+    return corpPool.find(c => c.id === 'corp-cu-2') || corpPool[0];
+  }
+  if (lower.includes('komplain') || lower.includes('keluhan') || lower.includes('customer')) {
+    return corpPool.find(c => c.id === 'corp-cu-1') || corpPool[0];
+  }
+  if (lower.includes('safety') || lower.includes('lti') || lower.includes('kecelakaan')) {
+    return corpPool.find(c => c.id === 'corp-ip-4') || corpPool.find(c => c.id === 'corp-ip-3') || corpPool[0];
+  }
+  if (lower.includes('hsse') || lower.includes('k3') || lower.includes('lingkungan') || lower.includes('mwt')) {
+    return corpPool.find(c => c.id === 'corp-ip-3') || corpPool[0];
+  }
+  if (lower.includes('audit') || lower.includes('temuan') || lower.includes('capa')) {
+    return corpPool.find(c => c.id === 'corp-ip-5') || corpPool[0];
+  }
+  if (lower.includes('pengadaan') || lower.includes('procurement') || lower.includes('tor') || lower.includes('hps')) {
+    return corpPool.find(c => c.id === 'corp-ip-6') || corpPool[0];
+  }
+  if (lower.includes('esg') || lower.includes('emisi') || lower.includes('metana') || lower.includes('dekarbonisasi')) {
+    return corpPool.find(c => c.id === 'corp-ip-7') || corpPool[0];
+  }
+  if (lower.includes('biaya') || lower.includes('budget') || lower.includes('anggaran') || lower.includes('opex') || lower.includes('npat')) {
+    return corpPool.find(c => c.id === 'corp-sh-1') || corpPool[0];
+  }
+  if (lower.includes('kontrak') || lower.includes('contract') || lower.includes('utilization')) {
+    return corpPool.find(c => c.id === 'corp-sh-3') || corpPool[0];
+  }
+  if (lower.includes('kompetensi') || lower.includes('training') || lower.includes('oe') || lower.includes('sertifikasi')) {
+    return corpPool.find(c => c.id === 'corp-lg-3') || corpPool[0];
+  }
+  if (lower.includes('akhlak') || lower.includes('budaya')) {
+    return corpPool.find(c => c.id === 'corp-lg-2') || corpPool[0];
+  }
+  // Default to Operation Excellence or first corp KPI
+  return corpPool.find(c => c.id === 'corp-ip-2') || corpPool[0];
+}
 
 export function generateDivisionKPIsOffline(
   selectedCorpKpis: CorporateKPI[],
@@ -13,9 +105,71 @@ export function generateDivisionKPIsOffline(
 ): DivisionKPI[] {
   const result: DivisionKPI[] = [];
   const textCorpus = `${profile.divisionName} ${profile.divisionDescription} ${profile.jobDesc} ${profile.keyDeliverables}`.toLowerCase();
-
-  // If no corporate KPIs selected, default to all relevant ones
   const corpPool = selectedCorpKpis.length > 0 ? selectedCorpKpis : CORPORATE_KPIS;
+  const ownerTitle = profile.divisionName ? `Kepala ${profile.divisionName}` : 'Kepala Divisi';
+
+  // 1. PRIORITAS: Parse isian user dari "Key Deliverables / Output Pekerjaan / Performance Measures"
+  const userDeliverables = parseDelimitedItems(profile.keyDeliverables);
+  
+  userDeliverables.forEach((item, index) => {
+    const kpiType = deriveKPITypeFromText(item);
+    const standardRef = deriveGasStandardFromText(item);
+    const matchedCorp = findBestMatchingCorpKPI(item, corpPool);
+
+    // Format a crisp division KPI name
+    let cleanName = item;
+    if (!cleanName.toLowerCase().startsWith('ketercapaian') && 
+        !cleanName.toLowerCase().startsWith('persentase') && 
+        !cleanName.toLowerCase().startsWith('tingkat') &&
+        !cleanName.toLowerCase().startsWith('pencapaian') &&
+        !cleanName.toLowerCase().startsWith('kepatuhan')) {
+      cleanName = `Pencapaian & Kepatuhan Output: ${item}`;
+    }
+
+    result.push({
+      id: `div-kpi-deliverable-${Date.now()}-${index + 1}`,
+      divisionKpi: cleanName,
+      definition: `Realisasi dan pemenuhan target output pekerjaan ${item} secara tuntas, presisi, dan sesuai standar teknis operasi perpipaan gas transmisi.`,
+      measurementFormula: `(Volume / Milestone ${item.substring(0, 30)}... Terealisasi / Target Terjadwal) * 100%`,
+      unit: item.toLowerCase().includes('zero') ? 'Kasus / Insiden' : (item.includes('%') ? '%' : '% Ketercapaian'),
+      target: item.toLowerCase().includes('zero') ? 'Zero Incident / 0 Kasus' : (item.match(/\d+[\.,]?\d*\s*%/)?.[0] || '100.00% Accomplished'),
+      kpiType: kpiType,
+      kpiOwner: ownerTitle,
+      rationale: `Diformulasikan langsung dari isian Key Deliverable divisi: "${item}", dan diselaraskan dengan KPI Korporat '${matchedCorp.name}' serta standar ${standardRef}.`,
+      linkedCorporateKpiId: matchedCorp.id,
+      linkedCorporateKpiName: matchedCorp.name,
+      gasStandardRef: standardRef,
+      weightEstimate: 12,
+      isSelected: true
+    });
+  });
+
+  // 2. Also parse distinct items from Job Desc if available and not redundant
+  const jobDescItems = parseDelimitedItems(profile.jobDesc);
+  if (result.length < 3 && jobDescItems.length > 0) {
+    jobDescItems.slice(0, 2).forEach((jobItem, jIdx) => {
+      const kpiType = deriveKPITypeFromText(jobItem);
+      const standardRef = deriveGasStandardFromText(jobItem);
+      const matchedCorp = findBestMatchingCorpKPI(jobItem, corpPool);
+
+      result.push({
+        id: `div-kpi-jobdesc-${Date.now()}-${jIdx + 1}`,
+        divisionKpi: `Keterlaksanaan Uraian Tugas: ${jobItem}`,
+        definition: `Pelaksanaan program dan kepatuhan tugas operasional ${jobItem} sesuai Standard Operating Procedure (SOP) dan SLA divisi.`,
+        measurementFormula: `(Jumlah Program / Tindakan ${jobItem.substring(0, 25)}... Terlaksana / Rencana Kerja Tahunan) * 100%`,
+        unit: '% Realisasi Program',
+        target: '100.00% Terlaksana',
+        kpiType: kpiType,
+        kpiOwner: ownerTitle,
+        rationale: `Ditransformasikan dari Job Desc divisi untuk memastikan eksekusi operasional selaras dengan KPI Korporat '${matchedCorp.name}' dan standar ${standardRef}.`,
+        linkedCorporateKpiId: matchedCorp.id,
+        linkedCorporateKpiName: matchedCorp.name,
+        gasStandardRef: standardRef,
+        weightEstimate: 10,
+        isSelected: true
+      });
+    });
+  }
 
   // Process selected Corporate KPIs
   corpPool.forEach((corp, idx) => {
@@ -360,6 +514,44 @@ export function generateOfficerKPIsOffline(
 ): OfficerKPI[] {
   const result: OfficerKPI[] = [];
   const textCorpus = `${officerProfile.positionName} ${officerProfile.positionDescription} ${officerProfile.jobDesc} ${officerProfile.performanceMeasures}`.toLowerCase();
+  const primaryDivKpi = divisionKpis[0]?.divisionKpi || 'Kinerja Operasional Divisi';
+
+  // 1. PRIORITAS: Parse isian user dari "Performance Measures / Key Deliverables Jabatan"
+  const userMeasures = parseDelimitedItems(officerProfile.performanceMeasures);
+  userMeasures.forEach((measure, mIdx) => {
+    const kpiType = deriveKPITypeFromText(measure);
+    const standardRef = deriveGasStandardFromText(measure);
+    
+    // Find matching division KPI
+    const matchingDivKpi = divisionKpis.find(d => 
+      d.kpiType === kpiType || 
+      measure.toLowerCase().includes(d.divisionKpi.toLowerCase().substring(0, 15))
+    ) || divisionKpis[0];
+
+    let cleanName = measure;
+    if (!cleanName.toLowerCase().startsWith('ketercapaian') && 
+        !cleanName.toLowerCase().startsWith('persentase') && 
+        !cleanName.toLowerCase().startsWith('tingkat') &&
+        !cleanName.toLowerCase().startsWith('pencapaian') &&
+        !cleanName.toLowerCase().startsWith('kepatuhan')) {
+      cleanName = `Pencapaian Ukuran Kinerja: ${measure}`;
+    }
+
+    result.push({
+      id: `off-kpi-measure-${Date.now()}-${mIdx + 1}`,
+      officerKpi: cleanName,
+      definition: `Penyelesaian dan pelaksanaan tugas individu terkait ${measure} sesuai SOP dan SLA jabatan ${officerProfile.positionName}.`,
+      measurementFormula: `(Realisasi Output ${measure.substring(0, 25)}... / Target Tugas Ditugaskan) * 100%`,
+      unit: measure.toLowerCase().includes('zero') ? 'Kasus' : (measure.includes('%') ? '%' : '% Ketercapaian'),
+      target: measure.toLowerCase().includes('zero') ? 'Zero Incident' : (measure.match(/\d+[\.,]?\d*\s*%/)?.[0] || '100.00% Selesai'),
+      kpiType: kpiType,
+      cascadedFromDivisionKpi: matchingDivKpi ? matchingDivKpi.divisionKpi : primaryDivKpi,
+      weightEstimate: 20,
+      rationale: `Diformulasikan langsung dari isian Performance Measures jabatan: "${measure}", diturunkan dari KPI Divisi '${matchingDivKpi ? matchingDivKpi.divisionKpi : primaryDivKpi}'.`,
+      gasStandardRef: standardRef,
+      isSelected: true
+    });
+  });
 
   // If division KPIs available, map them into officer cascaded deliverables
   divisionKpis.forEach((divKpi, idx) => {

@@ -196,12 +196,13 @@ export function App() {
       }
 
       const data = await response.json();
-      if (data.kpis && Array.isArray(data.kpis) && data.kpis.length > 0) {
-        setDivisionKpis(data.kpis);
+      const generatedList = data.kpis || data.data;
+      if (generatedList && Array.isArray(generatedList) && generatedList.length > 0) {
+        setDivisionKpis(generatedList);
         // Automatically select all for Officer cascading
-        setSelectedDivisionKpiIds(data.kpis.map((k: DivisionKPI) => k.id));
+        setSelectedDivisionKpiIds(generatedList.map((k: DivisionKPI) => k.id));
         setDivisionStep('division_kpi_results');
-        showNotification('success', `Berhasil membuat ${data.kpis.length} KPI Divisi berdasarkan standar ASME B31.8S & API 1160.`);
+        showNotification('success', `Berhasil membuat ${generatedList.length} KPI Divisi (termasuk penerjemahan Key Deliverables & standar ASME/API).`);
       } else {
         throw new Error('Format data KPI tidak sesuai');
       }
@@ -240,10 +241,11 @@ export function App() {
       }
 
       const data = await response.json();
-      if (data.kpis && Array.isArray(data.kpis) && data.kpis.length > 0) {
-        setOfficerKpis(data.kpis);
+      const generatedList = data.kpis || data.data;
+      if (generatedList && Array.isArray(generatedList) && generatedList.length > 0) {
+        setOfficerKpis(generatedList);
         setOfficerStep('officer_kpi_results');
-        showNotification('success', `Berhasil menghasilkan ${data.kpis.length} KPI Turunan untuk posisi ${officerProfile.positionName}.`);
+        showNotification('success', `Berhasil menghasilkan ${generatedList.length} KPI Turunan untuk posisi ${officerProfile.positionName} (termasuk dari Performance Measures).`);
       } else {
         throw new Error('Format KPI officer tidak valid');
       }
